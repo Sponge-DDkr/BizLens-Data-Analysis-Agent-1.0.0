@@ -1,0 +1,10 @@
+/* BizLens — Minimal global reset used by index.html <link> */
+/* All main styles are in App.css */
+
+body {
+  margin: 0;
+}
+
+#root {
+  min-height: 100vh;
+}

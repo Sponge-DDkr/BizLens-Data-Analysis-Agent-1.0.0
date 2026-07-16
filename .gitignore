@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+env/
+venv/
+agent_env/
+*.egg-info/
+mcp_knowledge_agent.egg-info/
+
+# Build output
+frontend/dist/
+
+# Storage & cache
+storage/*
+!storage/.gitkeep
+*.db
+*.chroma/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project docs & test data (not for public repo)
+Project_Review/
+
+# Docker
+*.tar
+hf-cache/

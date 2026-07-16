@@ -1,0 +1,45 @@
+# BizLens Backend — FastAPI + MCP Knowledge Server + Sandbox
+#
+# Subprocess sandbox mode (default). For Docker sandbox, set BIZLENS_USE_DOCKER=true
+# and ensure Docker socket is mounted.
+
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# System deps for numpy / scipy / torch
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install backend dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# Install mcp-knowledge-agent from project-local source
+COPY pyproject.toml .
+COPY mcp_knowledge_agent/ ./mcp_knowledge_agent/
+RUN pip install --no-cache-dir -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# Copy application code
+COPY backend/ ./backend/
+COPY agents/ ./agents/
+COPY sandbox/ ./sandbox/
+COPY mcp_client/ ./mcp_client/
+COPY knowledge_base/ ./knowledge_base/
+
+# Ensure storage dir exists
+RUN mkdir -p /app/storage
+
+# Allow HuggingFace model download on first startup
+ENV HF_HUB_OFFLINE=0
+ENV TRANSFORMERS_OFFLINE=0
+
+# DeepSeek API config (set in docker-compose or .env)
+ENV DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+ENV HOST=0.0.0.0
+ENV PORT=8000
+
+EXPOSE 8000
+
+CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

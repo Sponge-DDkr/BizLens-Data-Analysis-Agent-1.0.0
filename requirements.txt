@@ -1,0 +1,36 @@
+# BizLens Backend Dependencies
+# MCP Knowledge Agent deps (chromadb, sentence-transformers, torch, etc.)
+# are installed automatically via "pip install -e ." from pyproject.toml
+
+# Web Framework
+fastapi>=0.139.0
+uvicorn[standard]>=0.51.0
+sse-starlette>=3.4.0
+
+# LangGraph Agent Framework
+langgraph>=1.2.0
+langgraph-checkpoint>=4.0.0
+langgraph-prebuilt>=1.0.0
+langgraph-sdk>=0.4.0
+langchain-core>=1.4.0
+
+# Data Processing
+pandas>=3.0.0
+openpyxl>=3.1.0
+numpy>=2.0.0
+
+# Visualization
+plotly>=6.9.0
+
+# API & HTTP
+httpx>=0.28.0
+httpx-sse>=0.4.0
+python-multipart>=0.0.30
+
+# LLM Client (DeepSeek via OpenAI-compatible API)
+openai>=2.0.0
+
+# Config & Validation
+pydantic>=2.13.0
+pydantic-settings>=2.14.0
+python-dotenv>=1.2.0
