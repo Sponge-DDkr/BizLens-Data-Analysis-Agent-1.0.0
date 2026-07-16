@@ -372,7 +372,7 @@ function App() {
 
       {/* ── Footer ── */}
       <footer className="app-footer">
-        <p>BizLens — Data Analysis Agent · Demo v0.2</p>
+        <p>BizLens — Data Analysis Agent · v1.0.0</p>
       </footer>
     </div>
   );

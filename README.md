@@ -32,22 +32,22 @@ docker-compose up
 
 BizLens 是一个**多 Agent 协作的自动化数据分析系统**。上传 Excel/CSV 文件，用自然语言描述分析需求，系统自动完成：
 
-- 🔍 **拆解分析步骤**（Planner Agent — DeepSeek-R1）
-- 🐍 **生成并执行 Python 代码**（Code Interpreter Agent — DeepSeek-R1 + Sandbox）
-- 📊 **自动选择图表类型并生成可视化**（Visualization Agent — DeepSeek-R1 + Plotly）
-- 📝 **生成五段式分析报告**（Insight Agent — DeepSeek-V3 + MCP 知识注入）
+- **拆解分析步骤**（Planner Agent — DeepSeek-R1）
+- **生成并执行 Python 代码**（Code Interpreter Agent — DeepSeek-R1 + Sandbox）
+- **自动选择图表类型并生成可视化**（Visualization Agent — DeepSeek-R1 + Plotly）
+- **生成五段式分析报告**（Insight Agent — DeepSeek-V3 + MCP 知识注入）
 
 4 个 Agent 串行协作，全程 SSE 流式推送进度，最终输出可交互的 Plotly 图表 + Markdown 分析报告。
 
 ### 五段式报告
 
-| # | 章节 | 内容 |
-|---|------|------|
-| 📊 | 数据事实 | 真实计算结果的数字、表格、Top N |
-| 📈 | 图表说明 | 图表类型选择原因、关键趋势 |
-| 💡 | 业务解读 | MCP 知识库归因（有来源标注）或标注「推测」 |
-| 🎯 | 总结与建议 | 直接回答用户问题 + 关键数字支撑 + 行动建议（≤150字） |
-| 📁 | 数据来源 | 数据文件 + 知识库引用文档 |
+| 章节 | 内容 |
+|------|------|
+| 数据事实 | 真实计算结果的数字、表格、Top N |
+| 图表说明 | 图表类型选择原因、关键趋势 |
+| 业务解读 | MCP 知识库归因（有来源标注）或标注「推测」 |
+| 总结与建议 | 直接回答用户问题 + 关键数字支撑 + 行动建议（≤150字） |
+| 数据来源 | 数据文件 + 知识库引用文档 |
 
 ---
 
@@ -125,18 +125,18 @@ DataAgent
 
 ---
 
-## 面试亮点
+## 核心亮点
 
 - **多 Agent 协作架构**：LangGraph StateGraph 构建 4 Agent 串行 DAG，每个 Agent 有独立 State 和工具集，比单 LLM 调用更精准可控
 - **Per-Agent 模型分层**：代码 Agent 用 R1、报告 Agent 用 V3——不同任务选不同模型，体现选型判断力
 - **错误自愈机制**：LLM 生成的代码出错时，自动注入列名+数据上下文修复（Code Interpreter 3 次、Vis 2 次）
 - **MCP 知识注入**：通过 MCP 协议消费独立 Knowledge Server，Insight 报告带来源标注的业务归因
-- **五段式报告**：数据事实/图表说明/业务解读/🎯 总结与建议/数据来源——区分事实与解读，防幻觉关键设计
+- **五段式报告**：数据事实/图表说明/业务解读/总结与建议/数据来源——区分事实与解读，防幻觉关键设计
 - **三项目能力矩阵**：ARC（知识系统）→ MCP Server（协议抽象）→ BizLens（数据系统+协议消费），互相配合覆盖企业 AI 全场景
 
 ---
 
-## Demo 数据
+## 示例数据
 
 `Project_Review/数据分析测试用例/` 下提供 4 份测试数据（971-1000 行不等）：
 

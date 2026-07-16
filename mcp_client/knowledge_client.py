@@ -6,11 +6,10 @@ Architecture:
     - This avoids anyio task-scoping bugs on Python 3.13 + Windows + ProactorEventLoop
     - The subprocess is kept alive so the 2.5GB embedding model stays warm
 
-面试说法:
-    "MCP Knowledge Server 是独立的标准化知识检索服务（项目二），
-     BizLens 通过 MCP 协议消费它——Insight Agent 生成报告时注入知识库上下文。
-     这是三项目能力体系的关键交叉点：ARC（知识系统）→ MCP Server（协议抽象）
-     → BizLens（数据系统+协议消费）。"
+Design note:
+    MCP Knowledge Server provides standardized knowledge retrieval via MCP protocol.
+    BizLens consumes it — Insight Agent injects knowledge context into reports.
+    Cross-project architecture: ARC (knowledge) → MCP Server (protocol) → BizLens (data).
 """
 
 from __future__ import annotations

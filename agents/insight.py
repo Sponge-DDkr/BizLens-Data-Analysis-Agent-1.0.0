@@ -15,11 +15,11 @@ Day 5 optimization (2026-07-16):
     - Added fallback retry with aggressive truncation (1500/400)
     - Uses V3 model (not R1) for better Chinese writing quality
 
-面试说法：
-    "Insight Agent 综合三方面信息：(1) Code Interpreter 的真实计算结果，
-     (2) Visualization 的图表描述，(3) MCP Knowledge Server 的业务背景。
-     五段式报告区分数据事实和业务解读——面试官能看清边界，
-     🎯 总结段直接回答用户问题，这是防幻觉+可交付性的关键设计。"
+Design note:
+    Insight Agent synthesizes three data sources: (1) Code Interpreter's real results,
+    (2) Visualization's chart description, (3) MCP Knowledge Server's business context.
+    5-section report separates data facts from business interpretation for traceability.
+    Summary section directly answers the user's core question with key data points.
 """
 
 from __future__ import annotations

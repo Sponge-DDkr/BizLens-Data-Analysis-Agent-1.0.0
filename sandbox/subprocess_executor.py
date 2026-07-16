@@ -1,12 +1,11 @@
-"""Subprocess Executor — lightweight code execution for dev/demo.
+"""Subprocess Executor — lightweight code execution for development.
 
 No Docker required. Runs LLM-generated Python in a subprocess with basic isolation
 (temp directory + explicit DATA_DIR env var).
 
-面试说法：
-    "Demo 阶段用 subprocess + tempfile 隔离快速迭代，
-     生产环境切换到 Docker Sandbox——只读挂载数据卷、CPU/内存限制、
-     禁网络、30 秒超时。接口层统一，切换只需改一个环境变量。"
+For production, set BIZLENS_USE_DOCKER=true to switch to Docker Sandbox with
+read-only mounts, CPU/memory limits, network isolation, and 30s timeout.
+Unified interface via get_executor() factory — switch with one env var.
 """
 
 from __future__ import annotations
