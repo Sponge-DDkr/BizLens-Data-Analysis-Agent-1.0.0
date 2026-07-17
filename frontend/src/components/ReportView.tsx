@@ -36,7 +36,6 @@ const REFINE_CHIPS = [
 
 interface MarkdownComponentProps {
   children?: ReactNode;
-  [key: string]: unknown;
 }
 
 function MarkdownH2({ children, ...props }: MarkdownComponentProps) {

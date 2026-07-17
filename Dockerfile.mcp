@@ -1,0 +1,41 @@
+# BizLens MCP Knowledge Server — standalone HTTP service
+#
+# Independently deployable. Both BizLens and AI Research Copilot can
+# connect to this single instance — one embedding model, one ChromaDB.
+#
+# Run:
+#   docker run -p 8001:8001 -v chroma-data:/app/data/chroma bizlens-mcp
+#
+# Or via docker-compose (recommended).
+
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install MCP Knowledge Agent + deps
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+COPY pyproject.toml .
+COPY mcp_knowledge_agent/ ./mcp_knowledge_agent/
+RUN pip install --no-cache-dir -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# Copy knowledge base documents (optional — can be mounted as volume)
+COPY knowledge_base/ ./knowledge_base/
+
+# Persistent data dir
+RUN mkdir -p /app/data/chroma
+
+# Allow HuggingFace model download on first startup
+ENV HF_HUB_OFFLINE=0
+ENV TRANSFORMERS_OFFLINE=0
+
+EXPOSE 8001
+
+# Run as streamable-http, port configurable via env or compose override
+CMD ["python", "-m", "mcp_knowledge_agent", "--transport", "streamable-http", "--port", "8001"]

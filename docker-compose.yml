@@ -1,6 +1,39 @@
 version: "3.9"
 
 services:
+  # ── MCP Knowledge Server (independent HTTP service) ──
+  mcp-knowledge:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    container_name: bizlens-mcp-knowledge
+    ports:
+      - "8001:8001"
+    command:
+      - --transport
+      - streamable-http
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8001"
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
+      - HF_HUB_OFFLINE=0
+      - TRANSFORMERS_OFFLINE=0
+    volumes:
+      - chroma-data:/app/data/chroma
+      - hf-cache:/root/.cache/huggingface
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 90s   # model pre-load ~10-60s, ChromaDB init ~5s
+
+  # ── BizLens Backend ──
   backend:
     build:
       context: .
@@ -15,19 +48,21 @@ services:
       - BIZLENS_REASONING_MODEL=${BIZLENS_REASONING_MODEL:-deepseek-reasoner}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost}
       - BIZLENS_USE_DOCKER=${BIZLENS_USE_DOCKER:-}
-      - HF_HUB_OFFLINE=0
-      - TRANSFORMERS_OFFLINE=0
+      - MCP_SERVER_URL=http://mcp-knowledge:8001/mcp
     volumes:
       - bizlens-storage:/app/storage
-      - hf-cache:/root/.cache/huggingface
+    depends_on:
+      mcp-knowledge:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 10s
 
+  # ── BizLens Frontend ──
   frontend:
     build:
       context: .
@@ -42,4 +77,5 @@ services:
 
 volumes:
   bizlens-storage:
+  chroma-data:
   hf-cache:

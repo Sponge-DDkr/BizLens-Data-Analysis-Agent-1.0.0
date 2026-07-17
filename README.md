@@ -62,9 +62,11 @@ Planner → Code Interpreter → Visualization → Insight
   R1           R1                 R1             V3
    ↓            ↓                  ↓              ↓
 DeepSeek    Sandbox             Plotly         MCP Client
- API      (subprocess / Docker)  (JSON→前端)      ↓
-                                            MCP Knowledge Server
-                                           (answer_with_citation)
+ API      (subprocess / Docker)  (JSON→前端)  (streamable HTTP)
+                                                  ↓
+                                          MCP Knowledge Server
+                                         (独立 HTTP 服务 :8001)
+                                         answer_with_citation
 ```
 
 **模型分层策略**：代码/逻辑 Agent 使用 DeepSeek-R1（推理强、代码准确率高），报告 Agent 使用 DeepSeek-V3（中文流畅、商业术语地道）。各取所长。
@@ -93,12 +95,13 @@ DataAgent
 │   ├── docker_executor.py        # Docker 5 层安全约束
 │   └── Dockerfile                # bizlens-sandbox 镜像
 ├── mcp_client/
-│   └── knowledge_client.py       # MCP 持久化 stdio 子进程 + query_knowledge()
-├── mcp_knowledge_agent/          # MCP Knowledge Server 源码（8 工具 / stdio 传输）
+│   └── knowledge_client.py       # MCP streamable HTTP 持久化客户端 + query_knowledge()
+├── mcp_knowledge_agent/          # MCP Knowledge Server 源码（8 工具 / HTTP 传输）
 ├── knowledge_base/               # 检索知识库 .md 文件（9 份）
 ├── storage/                      # 用户上传文件（session_id 隔离）
 ├── tests/
-├── docker-compose.yml
+├── docker-compose.yml            # 三服务编排（MCP :8001 + Backend :8000 + Frontend :80）
+├── Dockerfile.mcp                # MCP Knowledge Server 独立镜像
 ├── Dockerfile.backend
 ├── Dockerfile.frontend
 ├── requirements.txt
@@ -120,8 +123,8 @@ DataAgent
 | 数据处理 | Pandas · openpyxl |
 | 可视化 | Plotly (go.Figure → JSON → 前端渲染) |
 | 沙箱 | Subprocess (dev) / Docker 5 层约束 (prod) |
-| 知识库 | MCP Knowledge Server · ChromaDB · sentence-transformers · BGE-Reranker |
-| 部署 | Docker Compose (backend + frontend 两服务) |
+| 知识库 | MCP Knowledge Server · ChromaDB · sentence-transformers · BGE-Reranker · streamable HTTP |
+| 部署 | Docker Compose (mcp-knowledge + backend + frontend 三服务) |
 
 ---
 

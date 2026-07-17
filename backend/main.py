@@ -56,19 +56,19 @@ app.add_middleware(
 
 
 # ---------------------------------------------------------------------------
-# Lifecycle — persistent MCP Knowledge Server session
+# Lifecycle — MCP Knowledge Server HTTP session
 # ---------------------------------------------------------------------------
 
 @app.on_event("startup")
 async def on_startup():
-    """Pre-warm the MCP Knowledge Server connection (synchronous, ~12s)."""
-    logger.info("[Startup] Warming up MCP Knowledge Server...")
+    """Verify MCP Knowledge Server HTTP connectivity on startup."""
+    logger.info("[Startup] Connecting to MCP Knowledge Server...")
     await startup_knowledge_client()
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    """Clean up the persistent MCP session."""
+    """Close the persistent MCP HTTP session."""
     await shutdown_knowledge_client()
 
 
@@ -348,40 +348,38 @@ KB_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 async def knowledge_status():
     """Return MCP Knowledge Server connection status.
 
-    Frontend uses this to show whether the knowledge base is available,
-    and if it's still initializing (loading the embedding model).
+    Frontend uses this to show whether the knowledge base is available.
     """
     from mcp_client.knowledge_client import _get_persistent
 
     ps = _get_persistent()
-    # Try a quick connect check — _ensure_connected is lazy and cached
     connected = await ps._ensure_connected()
     return {
         "connected": connected,
-        "status": "ready" if connected else ("connecting" if ps._available is None else "unavailable"),
+        "status": "ready" if connected else "unavailable",
         "detail": (
             "MCP Knowledge Server is ready"
             if connected
-            else (
-                "MCP server is starting up (model loading, may take 30-60s)..."
-                if ps._available is None
-                else "MCP Knowledge Server is not available"
-            )
+            else "MCP Knowledge Server is not available"
         ),
     }
 
 
 @app.get("/api/knowledge/documents")
 async def list_knowledge_documents(category: str | None = None):
-    """List all documents in the knowledge base, optionally filtered by category."""
+    """List all documents in the knowledge base, optionally filtered by category.
+
+    Returns `available: false` when the MCP Knowledge Server is unreachable,
+    so the frontend can distinguish "empty knowledge base" from "service down".
+    """
     from mcp_client.knowledge_client import list_knowledge_documents as list_docs
 
     try:
         docs = await list_docs(category)
-        return {"documents": docs}
+        return {"available": True, "documents": docs}
     except Exception as e:
         logger.error(f"Knowledge list failed: {e}")
-        raise HTTPException(status_code=500, detail=f"知识库查询失败: {str(e)}")
+        return {"available": False, "documents": [], "detail": str(e)[:200]}
 
 
 @app.get("/api/knowledge/stats")
@@ -431,8 +429,16 @@ async def upload_knowledge_document(file: UploadFile = File(...), category: str 
     # --- Forward to MCP Server ---
     try:
         result = await add_knowledge_document(str(tmp_path), category)
+        # add_knowledge_document swallows MCP errors into {"success": False} —
+        # surface them as HTTP errors so the frontend doesn't fake success
+        if isinstance(result, dict) and result.get("success") is False:
+            err = result.get("error", "未知错误")
+            logger.error(f"Knowledge add_document failed: {err}")
+            raise HTTPException(status_code=502, detail=f"知识库导入失败: {err}")
         logger.info(f"Knowledge document added: {result}")
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Knowledge add_document failed: {e}")
         raise HTTPException(status_code=500, detail=f"知识库导入失败: {str(e)}")
@@ -449,7 +455,13 @@ async def delete_knowledge_document(doc_id: str):
 
     try:
         result = await remove_knowledge_document(doc_id)
+        if isinstance(result, dict) and result.get("success") is False:
+            err = result.get("error", "未知错误")
+            logger.error(f"Knowledge remove failed: {err}")
+            raise HTTPException(status_code=502, detail=f"知识库删除失败: {err}")
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Knowledge remove failed: {e}")
         raise HTTPException(status_code=500, detail=f"知识库删除失败: {str(e)}")

@@ -48,6 +48,7 @@ export default function KnowledgePanel() {
   const [stats, setStats] = useState<KnowledgeStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [kbUnavailable, setKbUnavailable] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -65,14 +66,26 @@ export default function KnowledgePanel() {
 
       if (docsRes.ok) {
         const data = await docsRes.json();
-        setDocs(data.documents ?? []);
+        // Backend distinguishes "empty" from "MCP server unreachable"
+        if (data.available === false) {
+          setKbUnavailable(true);
+          setDocs([]);
+        } else {
+          setKbUnavailable(false);
+          setDocs(data.documents ?? []);
+        }
+      } else {
+        setKbUnavailable(true);
+        setError(`知识库查询失败 (HTTP ${docsRes.status})`);
       }
       if (statsRes.ok) {
         const data = await statsRes.json();
         setStats(data);
       }
     } catch (e) {
-      // MCP server may not be running — not a blocking error
+      // Backend itself unreachable
+      setKbUnavailable(true);
+      setError('无法连接后端服务');
       console.warn('KnowledgePanel: fetch failed', e);
     } finally {
       setLoading(false);
@@ -252,6 +265,11 @@ export default function KnowledgePanel() {
           {/* ── Document list ── */}
           {loading ? (
             <p className="knowledge-loading">加载中...</p>
+          ) : kbUnavailable ? (
+            <p className="knowledge-empty">
+              ⚠️ 知识库服务暂不可用（MCP Server 可能正在启动或已离线）。
+              <button className="knowledge-retry-btn" onClick={fetchData}>重试</button>
+            </p>
           ) : docs.length === 0 ? (
             <p className="knowledge-empty">
               知识库为空 — 上传行业报告、竞品分析等文档，Insight Agent 将在分析中自动检索引用。

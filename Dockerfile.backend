@@ -16,24 +16,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# Install mcp-knowledge-agent from project-local source
-COPY pyproject.toml .
-COPY mcp_knowledge_agent/ ./mcp_knowledge_agent/
-RUN pip install --no-cache-dir -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
-
 # Copy application code
 COPY backend/ ./backend/
 COPY agents/ ./agents/
 COPY sandbox/ ./sandbox/
 COPY mcp_client/ ./mcp_client/
-COPY knowledge_base/ ./knowledge_base/
 
 # Ensure storage dir exists
 RUN mkdir -p /app/storage
 
-# Allow HuggingFace model download on first startup
-ENV HF_HUB_OFFLINE=0
-ENV TRANSFORMERS_OFFLINE=0
+# MCP Knowledge Server connection
+ENV MCP_SERVER_URL=http://mcp-knowledge:8001/mcp
 
 # DeepSeek API config (set in docker-compose or .env)
 ENV DEEPSEEK_BASE_URL=https://api.deepseek.com/v1

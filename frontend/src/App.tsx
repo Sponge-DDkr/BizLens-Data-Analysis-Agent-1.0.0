@@ -14,8 +14,6 @@ import type {
 } from './types';
 import './App.css';
 
-const NODE_ORDER: NodeName[] = ['planner', 'code_interpreter', 'visualization', 'insight'];
-
 function makeInitialProgress(): Record<NodeName, NodeProgress> {
   return {
     planner: { status: 'pending' },
@@ -36,7 +34,7 @@ function App() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   // ── Results ──
-  const [plannerSteps, setPlannerSteps] = useState<StepUpdateEvent['steps']>([]);
+  const [plannerSteps, setPlannerSteps] = useState<NonNullable<StepUpdateEvent['steps']>>([]);
   const [chartJson, setChartJson] = useState<Record<string, unknown> | null>(null);
   const [report, setReport] = useState<string | null>(null);
 
@@ -197,10 +195,8 @@ function App() {
   }, [handleRefine, refineQuery]);
 
   // ── Derived state ──
-  const canAnalyze = Boolean(filePreview && query.trim() && analysisStatus !== 'analyzing');
   const isAnalyzing = analysisStatus === 'analyzing';
   const hasResults = Boolean(chartJson || report);
-  const hasReport = Boolean(report);
 
   return (
     <div className="app-container">

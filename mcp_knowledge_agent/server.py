@@ -20,7 +20,11 @@ from mcp_knowledge_agent.tools.manage import register_manage_tools
 from mcp_knowledge_agent.tools.answer import register_answer_tool
 
 
-def create_server(config: Config | None = None) -> FastMCP:
+def create_server(
+    config: Config | None = None,
+    host: str = "0.0.0.0",
+    port: int = 8001,
+) -> FastMCP:
     """创建 MCP Knowledge Agent Server 实例
 
     注册全部 8 个工具（原子层 7 + 智能层 1），
@@ -28,6 +32,8 @@ def create_server(config: Config | None = None) -> FastMCP:
 
     Args:
         config: 配置对象，None 时从环境变量加载
+        host: HTTP 模式监听地址（stdio 模式忽略）
+        port: HTTP 模式监听端口（stdio 模式忽略）
 
     Returns:
         配置好的 FastMCP 实例
@@ -40,6 +46,8 @@ def create_server(config: Config | None = None) -> FastMCP:
     mcp = FastMCP(
         name="mcp-knowledge-agent",
         json_response=True,
+        host=host,
+        port=port,
     )
 
     # ── 原子层（7 个工具，来自独立模块）──

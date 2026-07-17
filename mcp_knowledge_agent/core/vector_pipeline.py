@@ -368,9 +368,13 @@ class HybridSearchPipeline:
             except Exception:
                 file_count = chunk_count
 
-        # ChromaDB 存储大小
+        # ChromaDB 存储大小 — 取 vector 模块的真实持久化目录，
+        # 而非 CHROMA_PERSIST_DIR 环境变量（后者可能与实际不符）
         import os
-        chroma_dir = Path(os.getenv("CHROMA_PERSIST_DIR", "./data/chroma"))
+        real_dir = getattr(self.vector, "CHROMA_DIR", None)
+        chroma_dir = Path(real_dir) if real_dir else Path(
+            os.getenv("CHROMA_PERSIST_DIR", "./data/chroma")
+        )
         storage_size = 0
         if chroma_dir.exists():
             storage_size = sum(
