@@ -86,8 +86,8 @@ DataAgent
 ├── agents/
 │   ├── graph.py                  # LangGraph StateGraph 4 节点 DAG
 │   ├── planner.py                # 任务拆解（Pydantic 结构化输出）
-│   ├── code_interpreter.py       # 代码生成 + Step 0 数据理解 + 3 次错误自愈
-│   ├── visualization.py          # Plotly 图表自动选择 + 列名上下文修复
+│   ├── code_interpreter.py       # 代码生成 + Step 0 数据理解 + 3 次错误自愈（温度递增 + 降级兜底）
+│   ├── visualization.py          # Plotly 图表自动选择 + 3 次修正循环 + 降级兜底
 │   └── insight.py                # 五段式报告生成 + MCP 知识注入 + 双重降级
 ├── sandbox/
 │   ├── executor.py               # 双模式切换（subprocess / Docker）
@@ -132,7 +132,7 @@ DataAgent
 
 - **多 Agent 协作架构**：LangGraph StateGraph 构建 4 Agent 串行 DAG，每个 Agent 有独立 State 和工具集，比单 LLM 调用更精准可控
 - **Per-Agent 模型分层**：代码 Agent 用 R1、报告 Agent 用 V3——不同任务选不同模型，体现选型判断力
-- **错误自愈机制**：LLM 生成的代码出错时，自动注入列名+数据上下文修复（Code Interpreter 3 次、Vis 2 次）
+- **错误自愈机制**：LLM 生成的代码出错时，自动注入列名+数据上下文修复（两类代码 Agent 统一 3 次重试，温度递增，最后一次降级到最简可行方案保底产出）
 - **MCP 知识注入**：通过 MCP 协议消费独立 Knowledge Server，Insight 报告带来源标注的业务归因
 - **五段式报告**：数据事实/图表说明/业务解读/总结与建议/数据来源——区分事实与解读，防幻觉关键设计
 - **三项目能力矩阵**：ARC（知识系统）→ MCP Server（协议抽象）→ BizLens（数据系统+协议消费），互相配合覆盖企业 AI 全场景

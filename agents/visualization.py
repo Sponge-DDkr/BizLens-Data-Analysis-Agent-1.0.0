@@ -4,14 +4,16 @@ Architecture:
     1. Receive analysis results + chart-type steps from Planner
     2. LLM (deepseek-reasoner / R1) selects chart type + generates Plotly Python code
     3. Sandbox executes code → fig.to_json()
-    4. On failure: fix prompt with column names + data preview → retry (max 2)
-    5. Temperature ramp (0.1 → 0.2) for diverse fix attempts
-    6. Return chart_json for frontend rendering
+    4. On failure: fix prompt with column names + data preview → retry (max 3)
+    5. Temperature ramp (0.1 → 0.2 → 0.3) for diverse fix attempts
+    6. On last retry: degradation prompt forces fallback to simplest single-trace chart
+    7. JSON parse failure (code ran but no valid JSON) is treated as retryable error
+    8. Return chart_json for frontend rendering
 
-Day 5 optimization (2026-07-16):
-    - Fix prompt now includes actual data columns + preview (aligned with Code Interpreter)
-    - Fix temperature increases with retry_count to avoid generating identical broken code
-    - Uses deepseek-reasoner (R1) for more reliable Plotly code generation
+Day 6 optimization (2026-07-18):
+    - Retries aligned to 3 (was 2), matching Code Interpreter
+    - Degradation fix prompt on last retry: complex combo charts → single-trace Bar/Scatter
+    - JSON parse failures now enter the retry loop (previously returned None immediately)
 """
 
 from __future__ import annotations
@@ -158,6 +160,26 @@ VIS_FIX_TEMPLATE = """之前生成的可视化代码执行失败了。
 **只输出修正后的 Python 代码，不要解释。**"""
 
 
+VIS_DEGRADE_FIX_TEMPLATE = """之前生成的可视化代码经过多次修正仍然失败。现在请放弃复杂图表，生成一个**最简版本**。
+
+**可用数据列**：{columns}
+
+**数据预览（前3行）**：
+{data_preview}
+
+**上一次报错**：
+{error_message}
+
+**降级策略（严格遵守）**：
+- 放弃多 trace 组合图、双轴图、make_subplots 等复杂类型
+- **只生成最简单的单 trace 柱状图（go.Bar）或单 trace 折线图（go.Scatter）**
+- 只展示最核心的数据对比（选最重要的 1-2 个维度即可）
+- 数据中如有 NaN/inf → 用 fillna(0) 或 replace 清理后再绘图
+- 确保最后一行是 `print(fig.to_json())`
+
+**只输出简化后的 Python 代码，不要解释。**"""
+
+
 # ---------------------------------------------------------------------------
 # Clean code helper
 # ---------------------------------------------------------------------------
@@ -213,9 +235,17 @@ async def generate_chart(
     query: str,
     chart_steps: list[dict[str, Any]],
     session_id: str,
-    max_retries: int = 2,
+    max_retries: int = 3,
 ) -> dict[str, Any] | None:
     """Generate a Plotly chart based on analysis results.
+
+    Flow:
+        1. LLM generates Plotly code based on analysis summary + chart steps
+        2. Sandbox executes code
+        3. On failure (exec error or invalid JSON output):
+           → error + column context → LLM fixes → retry (up to max_retries)
+        4. Temperature ramp (0.1 → 0.2 → 0.3) for diverse fix attempts
+        5. On last retry → degradation prompt (simplest single-trace chart)
 
     Args:
         exec_result: Output from code_interpreter (contains 'output' and 'results').
@@ -264,48 +294,65 @@ async def generate_chart(
     logger.info(f"[Visualization] Generated Plotly code ({len(code)} chars)")
 
     # --- Step 2: Execute + retry loop ---
-    from sandbox.docker_executor import SandboxResult
-
+    # Handles both execution failures AND JSON parse failures (e.g. LLM forgot
+    # print(fig.to_json()) — code ran fine but output isn't valid JSON).
     result = execute_in_sandbox(code, session_dir)
     retry_count = 0
+    chart_json = None
 
-    while not result.success and retry_count < max_retries:
+    while retry_count <= max_retries:
+        # Check if current result is good (execute OK + valid JSON)
+        if result.success:
+            chart_json = _extract_json(result.output)
+            if chart_json is not None:
+                break  # success
+
+        # --- Need a retry ---
+        retry_count += 1
+        if retry_count > max_retries:
+            break  # exhausted
+
+        # Build error message: real error vs JSON parse failure
+        if not result.success:
+            error_msg = result.error
+        else:
+            error_msg = (
+                "代码执行成功但未输出有效JSON。"
+                "请确保最后一行是 print(fig.to_json())，不要用 fig.show() 或其他输出。"
+            )
+
         logger.warning(
-            f"[Visualization] Execution failed (retry {retry_count + 1}/{max_retries}): "
-            f"{result.error[:120]}"
+            f"[Visualization] Fix attempt {retry_count}/{max_retries}: "
+            f"{error_msg[:120]}"
         )
 
         # Get actual data columns + preview for the fix prompt
-        # (aligns with Code Interpreter's self-healing approach)
         columns, data_preview = _get_data_context(session_dir)
+
+        # On last retry → use degradation fix prompt (fall back to simplest chart)
+        is_last = (retry_count == max_retries)
+        template = VIS_DEGRADE_FIX_TEMPLATE if is_last else VIS_FIX_TEMPLATE
 
         fix_messages = [
             {"role": "system", "content": VIS_SYSTEM_PROMPT},
-            {"role": "user", "content": VIS_FIX_TEMPLATE.format(
+            {"role": "user", "content": template.format(
                 failed_code=code,
-                error_message=result.error,
+                error_message=error_msg,
                 columns=columns,
                 data_preview=data_preview,
             )},
         ]
 
-        # Gradually increase temperature for more diverse fix attempts
-        fix_temp = 0.1 + retry_count * 0.1
+        # Temperature ramp: 0.1 → 0.2 → 0.3 for diverse fix attempts
+        fix_temp = 0.1 + (retry_count - 1) * 0.1
         code = await client.chat(messages=fix_messages, temperature=fix_temp, max_tokens=2048, model=MODEL_REASONING)
         code = _clean_code(code)
-        logger.info(f"[Visualization] Regenerated fix code ({len(code)} chars)")
+        logger.info(f"[Visualization] Regenerated fix code ({len(code)} chars, temp={fix_temp})")
 
         result = execute_in_sandbox(code, session_dir)
-        retry_count += 1
 
-    if not result.success:
-        logger.error(f"[Visualization] Chart generation failed after {retry_count} retries")
-        return None
-
-    # --- Step 3: Parse JSON ---
-    chart_json = _extract_json(result.output)
     if chart_json is None:
-        logger.error(f"[Visualization] Failed to parse JSON from output: {result.output[:300]}")
+        logger.error(f"[Visualization] Chart generation failed after {retry_count} attempts")
         return None
 
     logger.info(

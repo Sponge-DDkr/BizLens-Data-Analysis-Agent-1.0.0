@@ -5,7 +5,9 @@ Architecture:
     2. Step 0 (always): Data Understanding → dtypes, describe, null counts
     3. For each subsequent step: LLM generates Python code → sandbox execution
     4. On failure: error + context fed back to LLM → code fix → retry (max 3)
-    5. Collect all results into exec_result for downstream agents
+    5. Temperature ramp (0.1 → 0.25 → 0.4) for diverse fix attempts
+    6. On last retry: degradation prompt forces fallback to simple describe/value_counts
+    7. Collect all results into exec_result for downstream agents
 """
 
 from __future__ import annotations
@@ -134,6 +136,30 @@ FIX_PROMPT_TEMPLATE = """你之前生成的分析代码执行失败了。
 **只输出修正后的 Python 代码，不要解释。**"""
 
 
+DEGRADE_FIX_PROMPT_TEMPLATE = """你之前生成的分析代码经过多次修正仍然失败了。现在请放弃复杂分析，生成一个**简化版本**的代码。
+
+**原始分析步骤**：{step_description}
+
+**上一次报错**：
+```
+{error_message}
+```
+
+**可用数据列**：{columns}
+
+**数据预览（前3行）**：
+{data_preview}
+
+**简化策略**：
+- 放弃复杂的分组聚合、多维度交叉分析
+- 只做 `df.describe()` + 数值列的基本统计（mean/sum/min/max）
+- 或对单一维度做 `value_counts()` 取 Top 5
+- 只用最简单的 Pandas 操作，确保代码能跑通
+- 边界处理：除零→'N/A'，inf→NaN→'N/A'
+
+**只输出简化后的 Python 代码，不要解释。**"""
+
+
 # ---------------------------------------------------------------------------
 # Code builder
 # ---------------------------------------------------------------------------
@@ -212,6 +238,8 @@ async def execute_single_step(
         1. LLM generates Python code for the step
         2. Sandbox executes the code
         3. If failed → error + context → LLM fixes → retry (up to max_retries)
+        4. On last retry → degradation prompt (fall back to simple describe/value_counts)
+        5. Temperature ramp (0.1 → 0.25 → 0.4) for diverse fix attempts
 
     Args:
         step_description: What this analysis step should do.
@@ -250,9 +278,13 @@ async def execute_single_step(
         # Get fresh column context for the fix prompt
         columns, preview = _get_data_context(session_dir)
 
+        # On last retry → use degradation fix prompt (fall back to simpler analysis)
+        is_last = (result.retry_count == max_retries - 1)
+        template = DEGRADE_FIX_PROMPT_TEMPLATE if is_last else FIX_PROMPT_TEMPLATE
+
         fix_messages = [
             {"role": "system", "content": CODE_SYSTEM_PROMPT},
-            {"role": "user", "content": FIX_PROMPT_TEMPLATE.format(
+            {"role": "user", "content": template.format(
                 step_description=step_description,
                 failed_code=code,
                 error_message=result.error,
@@ -261,9 +293,11 @@ async def execute_single_step(
             )},
         ]
 
-        code = await client.chat(messages=fix_messages, temperature=0.1, max_tokens=2048, model=MODEL_REASONING)
+        # Temperature ramp: 0.1 → 0.25 → 0.4 for diverse fix attempts
+        fix_temp = 0.1 + result.retry_count * 0.15
+        code = await client.chat(messages=fix_messages, temperature=fix_temp, max_tokens=2048, model=MODEL_REASONING)
         code = _clean_code(code)
-        logger.info(f"[CodeInterpreter] Regenerated fix code ({len(code)} chars)")
+        logger.info(f"[CodeInterpreter] Regenerated fix code ({len(code)} chars, temp={fix_temp})")
 
         result = execute_in_sandbox(code, session_dir)
         result.retry_count += 1
