@@ -34,6 +34,10 @@ Thumbs.db
 
 # Project docs & test data (not for public repo)
 Project_Review/
+!Project_Review/检索知识库/
+!Project_Review/数据分析测试用例/
+# Excel temp lock files
+~$*
 
 # Docker
 *.tar

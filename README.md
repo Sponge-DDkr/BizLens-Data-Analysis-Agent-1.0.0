@@ -141,6 +141,8 @@ DataAgent
 
 ## 示例数据
 
+### 分析测试数据
+
 `Project_Review/数据分析测试用例/` 下提供 4 份测试数据（971-1000 行不等）：
 
 | 文件 | 内容 | 推荐测试问题 |
@@ -151,6 +153,12 @@ DataAgent
 | `startup_finance_2024.xlsx` | 创业公司财务 | "这份财报健康吗" |
 
 详细测试问题见 `Project_Review/数据分析测试用例/测试问题.md`（含 20 道题、图表预期、Agent 链路）。
+
+### 检索知识库
+
+`Project_Review/检索知识库/` 下提供 9 份行业知识文档，覆盖 SaaS 运营、数字广告、创业融资、云计算、产品运营等领域，与测试数据主题一一对应。Insight Agent 通过 MCP Knowledge Server 检索这些文档注入业务归因。
+
+详见 [Project_Review/检索知识库/](Project_Review/检索知识库/)
 
 ---
 
