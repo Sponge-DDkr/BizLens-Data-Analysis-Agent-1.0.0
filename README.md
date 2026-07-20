@@ -9,6 +9,12 @@
 
 ---
 
+## 📺 项目介绍视频
+
+[![BizLens 项目介绍](https://img.shields.io/badge/Bilibili-项目介绍视频-00A1D6)](https://space.bilibili.com/494206751)
+
+---
+
 ## 快速开始
 
 ```bash
